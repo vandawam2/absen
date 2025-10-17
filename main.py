@@ -1,6 +1,8 @@
-# main.py - Versi untuk Railway
+# main.py - Versi Final dengan Perbaikan Health Check
 import time
 import os
+import threading
+from flask import Flask
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
@@ -26,14 +28,12 @@ def notifikasi(pesan):
 # --- FUNGSI UTAMA PENGECEKAN ABSEN ---
 def cek_semua_absen():
     options = webdriver.ChromeOptions()
-    # Argumen wajib untuk mode headless di server
     options.add_argument("--headless")
     options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--window-size=1920,1080")
 
-    # WebDriver-Manager akan menangani driver
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
     wait = WebDriverWait(driver, 60)
@@ -114,11 +114,34 @@ def cek_semua_absen():
         print("Menutup browser untuk siklus ini.")
         driver.quit()
 
-# --- BAGIAN UTAMA UNTUK MENJALANKAN DI RAILWAY ---
-if __name__ == '__main__':
+# --- BAGIAN SERVER WEB UNTUK RAILWAY ---
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot Absen Aktif."
+
+def run_absen_loop():
+    # --- PERUBAHAN UTAMA DI SINI ---
+    # Beri jeda 15 detik SEBELUM memulai siklus pertama.
+    # Ini memberi waktu bagi server Flask untuk aktif dan lolos Health Check.
+    print("Memberi jeda 15 detik untuk server web stabil...")
+    time.sleep(15)
+
     while True:
         waktu_sekarang = time.strftime('%H:%M:%S')
         print(f"\n--- Memulai Pengecekan Siklus Baru pada {waktu_sekarang} ---")
         cek_semua_absen()
         print(f"--- Siklus selesai. Siklus berikutnya dalam {INTERVAL_CEK / 60:.0f} menit. ---")
         time.sleep(INTERVAL_CEK)
+
+if __name__ == '__main__':
+    print("Memulai thread bot absen di latar belakang...")
+    absen_thread = threading.Thread(target=run_absen_loop)
+    absen_thread.daemon = True
+    absen_thread.start()
+    
+    print("Memulai web server Flask...")
+    # Railway akan menyediakan port melalui variabel lingkungan PORT
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
