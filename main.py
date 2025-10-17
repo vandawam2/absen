@@ -1,4 +1,4 @@
-# main.py - Versi Final dengan Perbaikan Health Check
+# main.py - Versi Final dengan Log Diagnostik
 import time
 import os
 import threading
@@ -27,6 +27,8 @@ def notifikasi(pesan):
 
 # --- FUNGSI UTAMA PENGECEKAN ABSEN ---
 def cek_semua_absen():
+    # --- LOG DIAGNOSTIK #1 ---
+    print("Tahap 1: Menyiapkan opsi Chrome...")
     options = webdriver.ChromeOptions()
     options.add_argument("--headless")
     options.add_argument("--disable-gpu")
@@ -34,14 +36,22 @@ def cek_semua_absen():
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--window-size=1920,1080")
 
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=options)
-    wait = WebDriverWait(driver, 60)
-    
+    driver = None # Inisialisasi driver
     try:
+        # --- LOG DIAGNOSTIK #2 ---
+        print("Tahap 2: Menginstal/menyiapkan chromedriver...")
+        service = Service(ChromeDriverManager().install())
+
+        # --- LOG DIAGNOSTIK #3 ---
+        print("Tahap 3: Memulai instance browser Chrome...")
+        driver = webdriver.Chrome(service=service, options=options)
+        print("Browser Chrome berhasil dimulai.")
+        wait = WebDriverWait(driver, 60)
+        
         # 1. Proses Login
         print("Membuka halaman login CAS PENS...")
         driver.get(URL_LOGIN)
+        # ... (Sisa logika Anda tetap sama)
         print("Memasukkan username dan password...")
         wait.until(EC.presence_of_element_located((By.ID, "username"))).send_keys(USERNAME)
         driver.find_element(By.ID, "password").send_keys(PASSWORD)
@@ -109,10 +119,11 @@ def cek_semua_absen():
                 print(f"    Terjadi error saat mengecek '{nama_matkul}': {e}")
 
     except Exception as e:
-        notifikasi(f"Terjadi error yang tidak terduga: {e}")
+        notifikasi(f"Terjadi error yang tidak terduga saat inisialisasi atau eksekusi: {e}")
     finally:
-        print("Menutup browser untuk siklus ini.")
-        driver.quit()
+        if driver:
+            print("Menutup browser untuk siklus ini.")
+            driver.quit()
 
 # --- BAGIAN SERVER WEB UNTUK RAILWAY ---
 app = Flask(__name__)
@@ -122,18 +133,21 @@ def home():
     return "Bot Absen Aktif."
 
 def run_absen_loop():
-    # --- PERUBAHAN UTAMA DI SINI ---
-    # Beri jeda 15 detik SEBELUM memulai siklus pertama.
-    # Ini memberi waktu bagi server Flask untuk aktif dan lolos Health Check.
     print("Memberi jeda 15 detik untuk server web stabil...")
     time.sleep(15)
 
     while True:
-        waktu_sekarang = time.strftime('%H:%M:%S')
-        print(f"\n--- Memulai Pengecekan Siklus Baru pada {waktu_sekarang} ---")
-        cek_semua_absen()
-        print(f"--- Siklus selesai. Siklus berikutnya dalam {INTERVAL_CEK / 60:.0f} menit. ---")
-        time.sleep(INTERVAL_CEK)
+        try:
+            waktu_sekarang = time.strftime('%H:%M:%S')
+            print(f"\n--- Memulai Pengecekan Siklus Baru pada {waktu_sekarang} ---")
+            cek_semua_absen()
+            print(f"--- Siklus selesai. Siklus berikutnya dalam {INTERVAL_CEK / 60:.0f} menit. ---")
+            time.sleep(INTERVAL_CEK)
+        except Exception as e:
+            # Menangkap error tak terduga yang mungkin menghentikan loop
+            print(f"!!! ERROR KRITIS DI MAIN LOOP: {e} !!!")
+            print("Mencoba lagi setelah 5 menit...")
+            time.sleep(300)
 
 if __name__ == '__main__':
     print("Memulai thread bot absen di latar belakang...")
@@ -142,6 +156,5 @@ if __name__ == '__main__':
     absen_thread.start()
     
     print("Memulai web server Flask...")
-    # Railway akan menyediakan port melalui variabel lingkungan PORT
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
