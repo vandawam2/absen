@@ -48,8 +48,17 @@ def cek_semua_absen():
     # Menggunakan Service() kosong karena chromedriver.exe sudah di folder yang sama
     service = Service()
     options = webdriver.ChromeOptions()
-    options.add_argument("--start-maximized")
     
+    # --- TAMBAHKAN 4 BARIS INI ---
+    options.add_argument("--headless")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage") # Penting untuk server Linux
+    
+    options.add_argument("--start-maximized") # Ini tetap penting
+    
+    # Setup service menggunakan webdriver-manager
+    service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
     # Menaikkan waktu tunggu maksimal untuk mengantisipasi jaringan lambat
     wait = WebDriverWait(driver, 60) 
@@ -152,4 +161,5 @@ def cek_semua_absen():
                 
 if __name__ == "__main__":
     cek_semua_absen()
+
     print("Program selesai.")
