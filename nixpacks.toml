@@ -1,11 +1,9 @@
 # File konfigurasi untuk Railway (Nixpacks)
 
 [phases.setup]
-# Daftar paket sistem yang perlu diinstal menggunakan apt (untuk Debian/Ubuntu)
+# Daftar paket sistem yang perlu diinstal
 aptPkgs = [
-    # Browser Google Chrome
     "google-chrome-stable",
-    # Library tambahan yang sering dibutuhkan oleh headless Chrome
     "libgconf-2-4",
     "libx11-xcb1",
     "libxss1",
