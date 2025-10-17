@@ -1,25 +1,33 @@
-# 1. Gunakan image dasar resmi Python
+# 1. Gunakan image dasar Python yang ramping
 FROM python:3.11-slim
 
-# 2. Instalasi dependensi dan Google Chrome dengan metode modern
-RUN apt-get update && apt-get install -y wget gnupg ca-certificates \
-    && install -m 0755 -d /etc/apt/keyrings \
-    && wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg \
-    && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
-    && apt-get update \
-    && apt-get install -y google-chrome-stable \
-    # Bersihkan cache untuk menjaga ukuran image tetap kecil
+# 2. Instalasi dependensi dan Google Chrome dengan metode yang lebih efisien
+# --no-install-recommends akan menghemat banyak ruang
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget \
+    gnupg \
+    ca-certificates \
+    # Hapus cache setelah setiap langkah untuk menjaga ukuran tetap kecil
     && rm -rf /var/lib/apt/lists/*
 
-# 3. Tetapkan direktori kerja di dalam container
+# 3. Tambahkan repositori Google Chrome
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg \
+    && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
+
+# 4. Instal Google Chrome
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    google-chrome-stable \
+    && rm -rf /var/lib/apt/lists/*
+
+# 5. Tetapkan direktori kerja
 WORKDIR /app
 
-# 4. Salin file requirements dan instal library Python
+# 6. Salin dan instal library Python
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 5. Salin semua file proyek Anda ke dalam container
+# 7. Salin sisa file proyek
 COPY . .
 
-# 6. Perintah yang akan dijalankan saat container dimulai
+# 8. Perintah untuk memulai skrip
 CMD ["python", "main.py"]
