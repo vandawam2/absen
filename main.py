@@ -1,6 +1,7 @@
-# main.py - Versi Final "Worker" (Paling Efisien)
+# main.py - Versi Final dengan Modul Logging (Anti-Buffer)
 import time
 import os
+import logging
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
@@ -9,6 +10,11 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 
+# --- KONFIGURASI LOGGING (PENGGANTI PRINT) ---
+# Ini akan mengkonfigurasi logger untuk langsung menampilkan pesan
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
+
 # --- KONFIGURASI PENGGUNA ---
 USERNAME = "irvandawam@it.student.pens.ac.id"
 PASSWORD = "Howto_321"
@@ -16,14 +22,8 @@ URL_LOGIN = "https://login.pens.ac.id/cas/login?service=http%3A%2F%2Fethol.pens.
 URL_DAFTAR_KULIAH = "https://ethol.pens.ac.id/mahasiswa/matakuliah"
 INTERVAL_CEK = 2700
 
-def notifikasi(pesan):
-    print("\n" + "#"*60)
-    pesan_tengah = pesan.upper().center(52)
-    print(f"### {pesan_tengah} ###")
-    print("#"*60 + "\n")
-
 def cek_semua_absen():
-    print("Tahap 1: Menyiapkan opsi Chrome...")
+    logging.info("Tahap 1: Menyiapkan opsi Chrome...")
     options = webdriver.ChromeOptions()
     options.add_argument("--headless")
     options.add_argument("--disable-gpu")
@@ -33,51 +33,51 @@ def cek_semua_absen():
 
     driver = None
     try:
-        print("Tahap 2: Menginstal/menyiapkan chromedriver...")
+        logging.info("Tahap 2: Menginstal/menyiapkan chromedriver...")
         service = Service(ChromeDriverManager().install())
 
-        print("Tahap 3: Memulai instance browser Chrome...")
+        logging.info("Tahap 3: Memulai instance browser Chrome...")
         driver = webdriver.Chrome(service=service, options=options)
-        print("Browser Chrome berhasil dimulai.")
+        logging.info("Browser Chrome berhasil dimulai.")
         wait = WebDriverWait(driver, 60)
         
-        print("Membuka halaman login CAS PENS...")
+        logging.info("Membuka halaman login CAS PENS...")
         driver.get(URL_LOGIN)
-        print("Memasukkan username dan password...")
+        logging.info("Memasukkan username dan password...")
         wait.until(EC.presence_of_element_located((By.ID, "username"))).send_keys(USERNAME)
         driver.find_element(By.ID, "password").send_keys(PASSWORD)
         driver.find_element(By.NAME, "submit").click()
-        print("Menunggu login berhasil...")
+        logging.info("Menunggu login berhasil...")
         wait.until(EC.url_contains("ethol.pens.ac.id/mahasiswa/beranda"))
-        print("Login berhasil! Kini berada di halaman Beranda.")
+        logging.info("Login berhasil! Kini berada di halaman Beranda.")
         time.sleep(2)
 
-        print("Mengklik tombol 'Matakuliah' di sidebar...")
+        logging.info("Mengklik tombol 'Matakuliah' di sidebar...")
         tombol_matakuliah = wait.until(EC.element_to_be_clickable(
             (By.XPATH, "//a[@href='/mahasiswa/matakuliah']")
         ))
         tombol_matakuliah.click()
         
-        print("Menunggu halaman daftar kuliah termuat sepenuhnya...")
+        logging.info("Menunggu halaman daftar kuliah termuat sepenuhnya...")
         wait.until(EC.visibility_of_element_located(
             (By.XPATH, "//label[contains(text(), 'Tahun Ajaran')]")
         ))
-        print("Halaman daftar kuliah berhasil dimuat!")
+        logging.info("Halaman daftar kuliah berhasil dimuat!")
 
-        print("Mengambil daftar semua mata kuliah...")
+        logging.info("Mengambil daftar semua mata kuliah...")
         judul_matkul_elements = wait.until(EC.presence_of_all_elements_located(
             (By.XPATH, "//span[contains(@class, 'card-title-mobile')]")
         ))
         nama_semua_matkul = [judul.text.strip() for judul in judul_matkul_elements if judul.text.strip()]
         
         if not nama_semua_matkul:
-            notifikasi("Error: Tidak ada mata kuliah yang ditemukan.")
+            logging.warning("Error: Tidak ada mata kuliah yang ditemukan.")
             return
 
-        print(f"Berhasil menemukan {len(nama_semua_matkul)} mata kuliah: {', '.join(nama_semua_matkul)}")
+        logging.info(f"Berhasil menemukan {len(nama_semua_matkul)} mata kuliah: {', '.join(nama_semua_matkul)}")
 
         for nama_matkul in nama_semua_matkul:
-            print(f"--> Mengecek matkul: {nama_matkul}")
+            logging.info(f"--> Mengecek matkul: {nama_matkul}")
             try:
                 if "/mahasiswa/matakuliah" not in driver.current_url:
                     driver.get(URL_DAFTAR_KULIAH)
@@ -97,25 +97,24 @@ def cek_semua_absen():
 
                 tombol_presensi = driver.find_element(By.XPATH, "//button[normalize-space(span)='Presensi' and not(@disabled)]")
                 tombol_presensi.click()
-                notifikasi(f"PRESENSI DIBUKA DAN DIKLIK UNTUK: {nama_matkul}")
+                logging.warning(f"PRESENSI DIBUKA DAN DIKLIK UNTUK: {nama_matkul}")
                 break
 
             except NoSuchElementException:
-                print(f"    Presensi untuk '{nama_matkul}' masih ditutup.")
+                logging.info(f"    Presensi untuk '{nama_matkul}' masih ditutup.")
             except Exception as e:
-                print(f"    Terjadi error saat mengecek '{nama_matkul}': {e}")
+                logging.error(f"    Terjadi error saat mengecek '{nama_matkul}': {e}")
 
     except Exception as e:
-        notifikasi(f"Terjadi error yang tidak terduga: {e}")
+        logging.critical(f"Terjadi error yang tidak terduga: {e}", exc_info=True)
     finally:
         if driver:
-            print("Menutup browser untuk siklus ini.")
+            logging.info("Menutup browser untuk siklus ini.")
             driver.quit()
 
 if __name__ == '__main__':
     while True:
-        waktu_sekarang = time.strftime('%H:%M:%S')
-        print(f"\n--- Memulai Pengecekan Siklus Baru pada {waktu_sekarang} ---")
+        logging.info(f"--- Memulai Pengecekan Siklus Baru ---")
         cek_semua_absen()
-        print(f"--- Siklus selesai. Siklus berikutnya dalam {INTERVAL_CEK / 60:.0f} menit. ---")
+        logging.info(f"--- Siklus selesai. Siklus berikutnya dalam {INTERVAL_CEK / 60:.0f} menit. ---")
         time.sleep(INTERVAL_CEK)
