@@ -1,4 +1,4 @@
-# main.py - Versi Final dengan Modul Logging (Anti-Buffer)
+# main.py - Versi dengan Severity Level WARNING
 import time
 import os
 import logging
@@ -11,8 +11,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 
 # --- KONFIGURASI LOGGING (PENGGANTI PRINT) ---
-# Ini akan mengkonfigurasi logger untuk langsung menampilkan pesan
-logging.basicConfig(level=logging.INFO,
+# Mengubah level dari INFO menjadi WARNING untuk mengurangi jumlah log
+logging.basicConfig(level=logging.WARNING,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- KONFIGURASI PENGGUNA ---
@@ -23,6 +23,7 @@ URL_DAFTAR_KULIAH = "https://ethol.pens.ac.id/mahasiswa/matakuliah"
 INTERVAL_CEK = 2700
 
 def cek_semua_absen():
+    # Menggunakan logging.info() agar pesan ini tidak tampil kecuali saat debugging
     logging.info("Tahap 1: Menyiapkan opsi Chrome...")
     options = webdriver.ChromeOptions()
     options.add_argument("--headless")
@@ -97,6 +98,7 @@ def cek_semua_absen():
 
                 tombol_presensi = driver.find_element(By.XPATH, "//button[normalize-space(span)='Presensi' and not(@disabled)]")
                 tombol_presensi.click()
+                # Menggunakan logging.warning agar notifikasi ini selalu muncul
                 logging.warning(f"PRESENSI DIBUKA DAN DIKLIK UNTUK: {nama_matkul}")
                 break
 
@@ -106,6 +108,7 @@ def cek_semua_absen():
                 logging.error(f"    Terjadi error saat mengecek '{nama_matkul}': {e}")
 
     except Exception as e:
+        # Menggunakan logging.critical untuk error paling fatal
         logging.critical(f"Terjadi error yang tidak terduga: {e}", exc_info=True)
     finally:
         if driver:
@@ -114,6 +117,7 @@ def cek_semua_absen():
 
 if __name__ == '__main__':
     while True:
+        # Pesan ini tidak akan muncul di log karena levelnya INFO
         logging.info(f"--- Memulai Pengecekan Siklus Baru ---")
         cek_semua_absen()
         logging.info(f"--- Siklus selesai. Siklus berikutnya dalam {INTERVAL_CEK / 60:.0f} menit. ---")
