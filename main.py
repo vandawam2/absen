@@ -1,4 +1,4 @@
-# main.py - Versi Final dengan Modul Logging (Anti-Buffer)
+# main.py - Versi Final dengan Perbaikan Lokasi Browser
 import time
 import os
 import logging
@@ -10,8 +10,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 
-# --- KONFIGURASI LOGGING (PENGGANTI PRINT) ---
-# Ini akan mengkonfigurasi logger untuk langsung menampilkan pesan
+# --- KONFIGURASI LOGGING ---
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -25,6 +24,11 @@ INTERVAL_CEK = 2700
 def cek_semua_absen():
     logging.info("Tahap 1: Menyiapkan opsi Chrome...")
     options = webdriver.ChromeOptions()
+    
+    # --- PERBAIKAN UTAMA DI SINI ---
+    # Beri tahu Selenium lokasi browser Chrome yang diinstal oleh Dockerfile
+    options.binary_location = "/usr/bin/google-chrome"
+    
     options.add_argument("--headless")
     options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox")
@@ -34,6 +38,8 @@ def cek_semua_absen():
     driver = None
     try:
         logging.info("Tahap 2: Menginstal/menyiapkan chromedriver...")
+        # Sekarang webdriver-manager akan melihat lokasi browser,
+        # mengecek versinya (v140+), dan mengunduh driver yang TEPAT.
         service = Service(ChromeDriverManager().install())
 
         logging.info("Tahap 3: Memulai instance browser Chrome...")
@@ -88,7 +94,7 @@ def cek_semua_absen():
                 tombol_akses = wait.until(EC.element_to_be_clickable(
                     (By.XPATH, f"//div[contains(@class, 'card-matkul') and .//span[normalize-space()='{nama_matkul}']]//button[contains(., 'Akses Kuliah')]")
                 ))
-                driver.execute_script("arguments[0].click();", tombol_akses)
+                driver.execute_script("arguments[0.click();", tombol_akses)
                 
                 wait.until(EC.element_to_be_clickable(
                     (By.XPATH, "//button[normalize-space(span)='Aturan Presensi']")
