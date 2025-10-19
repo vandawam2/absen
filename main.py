@@ -1,4 +1,4 @@
-# main.py - Versi Final dengan Perbaikan Lokasi Browser
+# main.py - Versi Final dengan Perbaikan JavaScript
 import time
 import os
 import logging
@@ -24,9 +24,6 @@ INTERVAL_CEK = 2700
 def cek_semua_absen():
     logging.info("Tahap 1: Menyiapkan opsi Chrome...")
     options = webdriver.ChromeOptions()
-    
-    # --- PERBAIKAN UTAMA DI SINI ---
-    # Beri tahu Selenium lokasi browser Chrome yang diinstal oleh Dockerfile
     options.binary_location = "/usr/bin/google-chrome"
     
     options.add_argument("--headless")
@@ -38,8 +35,6 @@ def cek_semua_absen():
     driver = None
     try:
         logging.info("Tahap 2: Menginstal/menyiapkan chromedriver...")
-        # Sekarang webdriver-manager akan melihat lokasi browser,
-        # mengecek versinya (v140+), dan mengunduh driver yang TEPAT.
         service = Service(ChromeDriverManager().install())
 
         logging.info("Tahap 3: Memulai instance browser Chrome...")
@@ -94,7 +89,9 @@ def cek_semua_absen():
                 tombol_akses = wait.until(EC.element_to_be_clickable(
                     (By.XPATH, f"//div[contains(@class, 'card-matkul') and .//span[normalize-space()='{nama_matkul}']]//button[contains(., 'Akses Kuliah')]")
                 ))
-                driver.execute_script("arguments[0.click();", tombol_akses)
+                
+                # --- PERBAIKAN TYPO DI SINI ---
+                driver.execute_script("arguments[0].click();", tombol_akses)
                 
                 wait.until(EC.element_to_be_clickable(
                     (By.XPATH, "//button[normalize-space(span)='Aturan Presensi']")
@@ -109,7 +106,7 @@ def cek_semua_absen():
             except NoSuchElementException:
                 logging.info(f"    Presensi untuk '{nama_matkul}' masih ditutup.")
             except Exception as e:
-                logging.error(f"    Terjadi error saat mengecek '{nama_matkul}': {e}")
+                logging.error(f"    Terjadi error saat mengecek '{nama_matkul}': {e}", exc_info=True) # Menambahkan exc_info untuk detail
 
     except Exception as e:
         logging.critical(f"Terjadi error yang tidak terduga: {e}", exc_info=True)
