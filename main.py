@@ -1,4 +1,4 @@
-# main.py - Versi Final dengan Perbaikan JavaScript
+# main.py - Versi Final dengan Opsi Isolasi Chrome
 import time
 import os
 import logging
@@ -8,7 +8,7 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException, SessionNotCreatedException
 
 # --- KONFIGURASI LOGGING ---
 logging.basicConfig(level=logging.INFO,
@@ -31,6 +31,12 @@ def cek_semua_absen():
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--window-size=1920,1080")
+    
+    # --- PERBAIKAN UTAMA DI SINI ---
+    # Tambahkan argumen untuk isolasi yang lebih baik
+    options.add_argument("--remote-debugging-port=0") # Gunakan port acak
+    options.add_argument("--disable-extensions")      # Nonaktifkan ekstensi
+    # Kita tidak secara eksplisit mengatur --user-data-dir, biarkan Selenium mengelola sementara
 
     driver = None
     try:
@@ -40,7 +46,7 @@ def cek_semua_absen():
         logging.info("Tahap 3: Memulai instance browser Chrome...")
         driver = webdriver.Chrome(service=service, options=options)
         logging.info("Browser Chrome berhasil dimulai.")
-        wait = WebDriverWait(driver, 60)
+        wait = WebDriverWait(driver, 120) # Tetap gunakan timeout 120 detik
         
         logging.info("Membuka halaman login CAS PENS...")
         driver.get(URL_LOGIN)
@@ -89,8 +95,6 @@ def cek_semua_absen():
                 tombol_akses = wait.until(EC.element_to_be_clickable(
                     (By.XPATH, f"//div[contains(@class, 'card-matkul') and .//span[normalize-space()='{nama_matkul}']]//button[contains(., 'Akses Kuliah')]")
                 ))
-                
-                # --- PERBAIKAN TYPO DI SINI ---
                 driver.execute_script("arguments[0].click();", tombol_akses)
                 
                 wait.until(EC.element_to_be_clickable(
@@ -106,8 +110,12 @@ def cek_semua_absen():
             except NoSuchElementException:
                 logging.info(f"    Presensi untuk '{nama_matkul}' masih ditutup.")
             except Exception as e:
-                logging.error(f"    Terjadi error saat mengecek '{nama_matkul}': {e}", exc_info=True) # Menambahkan exc_info untuk detail
+                logging.error(f"    Terjadi error saat mengecek '{nama_matkul}': {e}", exc_info=True)
 
+    except SessionNotCreatedException as e:
+        # Menangkap error spesifik ini untuk pesan yang lebih jelas
+        logging.critical(f"Gagal memulai sesi Chrome: {e}", exc_info=True)
+        logging.critical("Ini mungkin karena proses Chrome sebelumnya belum tertutup sepenuhnya. Coba deploy ulang.")
     except Exception as e:
         logging.critical(f"Terjadi error yang tidak terduga: {e}", exc_info=True)
     finally:
