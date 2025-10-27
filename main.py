@@ -6,7 +6,8 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 # ChromeDriverManager akan menangani pengunduhan chromedriver yang sesuai
-from webdriver_manager.chrome import ChromeDriverManager 
+# Hapus 'ChromeDriverManager' karena kita akan mengandalkan buildpack
+# from webdriver_manager.chrome import ChromeDriverManager 
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException, TimeoutException, SessionNotCreatedException, WebDriverException
@@ -53,12 +54,29 @@ def cek_semua_absen():
     # Opsi tambahan untuk menenangkan logging dan startup
     options.add_argument("--log-level=3") 
     options.add_argument("--silent")
+
+    # --- PERBAIKAN BARU UNTUK LINGKUNGAN SANGAT TERBATAS (RAILWAY/HEROKU) ---
+    logging.info("Menerapkan opsi --single-process dan --disable-images untuk menghemat memori.")
+    # 1. Jalankan dalam satu proses: SANGAT mengurangi penggunaan RAM, 
+    #    meskipun mengorbankan keamanan/stabilitas (tetapi lebih baik daripada crash -5)
+    options.add_argument("--single-process") 
+    # 2. Nonaktifkan gambar: Mengurangi penggunaan memori saat me-render halaman
+    options.add_argument("--disable-images")
+    options.add_argument("--blink-settings=imagesEnabled=false")
+    # 3. Nonaktifkan fitur-fitur latar belakang lainnya
+    options.add_argument("--disable-background-networking")
+    options.add_argument("--disable-default-apps")
+    options.add_argument("--disable-sync")
+    options.add_argument("--disable-translate")
     
     driver = None
     try:
-        logging.info("Tahap 2: Menginstal/menyiapkan chromedriver...")
-        # Chromedriver manager akan memastikan versi driver yang tepat diunduh
-        service = Service(ChromeDriverManager().install())
+        # --- PERUBAHAN UTAMA DI SINI ---
+        logging.info("Tahap 2: Menyiapkan Service (mengandalkan buildpack Railway/Nixpacks)...")
+        # Kita tidak lagi menggunakan ChromeDriverManager().install()
+        # Kita berasumsi buildpack Railway telah menginstal chromedriver ke PATH.
+        # Selenium 4+ akan menemukannya secara otomatis.
+        service = Service()
 
         logging.info("Tahap 3: Memulai instance browser Chrome...")
         driver = webdriver.Chrome(service=service, options=options)
@@ -161,8 +179,14 @@ def cek_semua_absen():
 
     except WebDriverException as e:
         # Menangkap error WebDriver secara umum (termasuk Status -5)
-        logging.critical(f"Gagal memulai atau menjalankan browser Chrome. Error: {e.msg}", exc_info=True)
-        logging.critical("Pastikan versi Chrome dan Chromedriver Anda cocok dan argumen headless sudah benar.")
+        # Tambahkan log yang lebih spesifik untuk masalah Railway
+        if "Status code was: -5" in str(e.msg) or "Status code was: -9" in str(e.msg):
+            logging.critical(f"Gagal memulai Chrome (Status Code -5 atau -9). Ini SANGAT MUNGKIN masalah kehabisan memori (OOM) di Railway.")
+            logging.critical("Pastikan plan Railway Anda memiliki RAM yang cukup (mis. > 512MB). Opsi --single-process sudah diterapkan.")
+        else:
+            logging.critical(f"Gagal memulai atau menjalankan browser Chrome. Error: {e.msg}", exc_info=True)
+            
+        logging.critical("Pastikan buildpack Railway (Nixpacks) menginstal google-chrome DAN chromedriver yang cocok di PATH.")
     except Exception as e:
         logging.critical(f"Terjadi error yang tidak terduga: {e}", exc_info=True)
     finally:
@@ -177,3 +201,4 @@ if __name__ == '__main__':
         cek_semua_absen()
         logging.info(f"--- Siklus selesai. Siklus berikutnya dalam {INTERVAL_CEK / 60:.0f} menit. ---")
         time.sleep(INTERVAL_CEK)
+
