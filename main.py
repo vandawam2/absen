@@ -5,7 +5,6 @@ import logging
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
-# ChromeDriverManager akan menangani pengunduhan chromedriver yang sesuai
 # Hapus 'ChromeDriverManager' karena kita akan mengandalkan buildpack
 # from webdriver_manager.chrome import ChromeDriverManager 
 from selenium.webdriver.support.ui import WebDriverWait
@@ -33,7 +32,7 @@ def cek_semua_absen():
     options.binary_location = "/usr/bin/google-chrome"
     
     # Opsi dasar untuk mode Headless
-    options.add_argument("--headless")
+    options.add_argument("--headless=new") # Eksplisit menggunakan mode headless baru
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
     
@@ -55,19 +54,29 @@ def cek_semua_absen():
     options.add_argument("--log-level=3") 
     options.add_argument("--silent")
 
-    # --- PERBAIKAN BARU UNTUK LINGKUNGAN SANGAT TERBATAS (RAILWAY/HEROKU) ---
-    logging.info("Menerapkan opsi --single-process dan --disable-images untuk menghemat memori.")
-    # 1. Jalankan dalam satu proses: SANGAT mengurangi penggunaan RAM, 
-    #    meskipun mengorbankan keamanan/stabilitas (tetapi lebih baik daripada crash -5)
-    options.add_argument("--single-process") 
-    # 2. Nonaktifkan gambar: Mengurangi penggunaan memori saat me-render halaman
+    # --- PERBAIKAN BARU (MENGGANTIKAN --single-process) ---
+    logging.info("Menerapkan opsi penghematan memori (mengganti --single-process)...")
+    
+    # 1. HAPUS --single-process: Ini mungkin penyebab crash 'Unable to receive message from renderer'
+    # options.add_argument("--single-process") # DIHAPUS KARENA TIDAK STABIL
+    
+    # 2. Nonaktifkan gambar & fitur visual berat
     options.add_argument("--disable-images")
     options.add_argument("--blink-settings=imagesEnabled=false")
+    options.add_argument("--disable-software-rasterizer") # Nonaktifkan perenderan software
+    options.add_argument("--disable-3d-apis") # Nonaktifkan WebGL/API 3D
+
     # 3. Nonaktifkan fitur-fitur latar belakang lainnya
     options.add_argument("--disable-background-networking")
+    options.add_argument("--disable-background-timer-throttling")
     options.add_argument("--disable-default-apps")
     options.add_argument("--disable-sync")
     options.add_argument("--disable-translate")
+    options.add_argument("--disable-breakpad") # Nonaktifkan laporan crash
+    options.add_argument("--disable-component-update")
+    
+    # 4. Tambahkan --no-zygote, sering dipasangkan dengan --no-sandbox
+    options.add_argument("--no-zygote")
     
     driver = None
     try:
@@ -177,14 +186,15 @@ def cek_semua_absen():
             ))
             time.sleep(1)
 
-    except WebDriverException as e:
-        # Menangkap error WebDriver secara umum (termasuk Status -5)
+    except (WebDriverException, InvalidSessionIdException) as e:
+        # Menangkap error WebDriver secara umum (termasuk Status -5 dan InvalidSessionId)
         # Tambahkan log yang lebih spesifik untuk masalah Railway
-        if "Status code was: -5" in str(e.msg) or "Status code was: -9" in str(e.msg):
-            logging.critical(f"Gagal memulai Chrome (Status Code -5 atau -9). Ini SANGAT MUNGKIN masalah kehabisan memori (OOM) di Railway.")
-            logging.critical("Pastikan plan Railway Anda memiliki RAM yang cukup (mis. > 512MB). Opsi --single-process sudah diterapkan.")
+        error_msg = str(e.msg if hasattr(e, 'msg') else e)
+        if "Status code was: -5" in error_msg or "Status code was: -9" in error_msg or "invalid session id" in error_msg or "browser has closed" in error_msg:
+            logging.critical(f"Gagal memulai Chrome. Ini SANGAT MUNGKIN masalah kehabisan memori (OOM) di Railway.")
+            logging.critical("Pastikan plan Railway Anda memiliki RAM yang cukup (mis. > 512MB). Opsi penghemat memori terbaru telah diterapkan.")
         else:
-            logging.critical(f"Gagal memulai atau menjalankan browser Chrome. Error: {e.msg}", exc_info=True)
+            logging.critical(f"Gagal memulai atau menjalankan browser Chrome. Error: {e.msg if hasattr(e, 'msg') else e}", exc_info=True)
             
         logging.critical("Pastikan buildpack Railway (Nixpacks) menginstal google-chrome DAN chromedriver yang cocok di PATH.")
     except Exception as e:
